@@ -4,14 +4,8 @@ import tkinter as tk
 from tkinter import Toplevel, Label, OptionMenu, Button, StringVar
 from tkinter.filedialog import askopenfilename, asksaveasfilename
 
-def create_root_window():
-    root = tk.Tk()
-    root.withdraw()
-    return root
-
 def select_file(root, title, file_types):
-    selected_file = askopenfilename(title=title, file_types=file_types, parent=root)
-    return selected_file
+    return askopenfilename(title=title, filetypes=file_types, parent=root)
 
 def select_from_dropdown(root, options, title, prompt):
     result = {'selection': None}
@@ -32,39 +26,41 @@ def select_from_dropdown(root, options, title, prompt):
 
     Button(top, text="OK", command=selection_made).pack(pady=10)
 
-    top.wait_window()
+    top.grab_set()  # Make the window modal
+    top.wait_window()  # Wait for the window to close before returning
     return result['selection']
 
 def main():
-    root = create_root_window()
+    root = tk.Tk()
+    root.withdraw()
+
     template_path = select_file(root, "Select Template Workbook", [("Excel files", "*.xlsm")])
     if not template_path:
         print("No template workbook selected. Exiting.")
-        root.destroy()
         return
-    template_wb = xw.Book(template_path)
 
-    # Explicit variables for each target sheet
+    template_wb = xw.Book(template_path)
+    sheet_names = [sheet.name for sheet in template_wb.sheets]
+    
     target_sheets = []
     data_paths = []
 
-    sheet_names = [sheet.name for sheet in template_wb.sheets]
-
-    # Select target sheets and data workbooks
-    for i in range(3):
-        target_sheet_name = select_from_dropdown(sheet_names, "Sheet Selection", f"Select target sheet for Data Workbook {i+1}:")
+    for i in range(1, 4):
+        target_sheet_name = select_from_dropdown(root, sheet_names, "Sheet Selection", f"Select target sheet for Data Workbook {i}:")
         if target_sheet_name:
             target_sheets.append(target_sheet_name)
-            data_path = select_file(f"Select Data Workbook {i+1}", [("Excel/CSV files", "*.xlsx;*.xlsm;*.csv")])
+            data_path = select_file(root, f"Select Data Workbook {i}", [("Excel/CSV files", "*.xlsx;*.xlsm;*.csv")])
             if data_path:
                 data_paths.append(data_path)
 
+    for target_sheet_name, data_path in zip(target_sheets, data_paths):
+        
     # Process each data workbook
     for target_sheet_name, data_path in zip(target_sheets, data_paths):
         process_data_workbook(data_path, target_sheet_name, template_wb)
 
     # Macro selection and execution
-     macro_names = [macro.name for macro in template_wb.api.VBProject.VBComponents if macro.Type == 1] # Filter for macros
+    macro_names = [macro.name for macro in template_wb.api.VBProject.VBComponents if macro.Type == 1] # Filter for macros
     selected_macro = select_from_dropdown(macro_names, "Macro Selection", "Select a macro to run:")
     if selected_macro:
         template_wb.macro(selected_macro)()
