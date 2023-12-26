@@ -4,14 +4,16 @@ import tkinter as tk
 from tkinter import Toplevel, Label, OptionMenu, Button, StringVar
 from tkinter.filedialog import askopenfilename, asksaveasfilename
 
-root = tk.Tk()
-root.withdraw()
+def create_root_window():
+    root = tk.Tk()
+    root.withdraw()
+    return root
 
-def select_file(title, file_types):
+def select_file(root, title, file_types):
     selected_file = askopenfilename(title=title, file_types=file_types, parent=root)
     return selected_file
 
-def select_from_dropdown(options, title, prompt):
+def select_from_dropdown(root, options, title, prompt):
     result = {'selection': None}
 
     def selection_made():
@@ -33,23 +35,13 @@ def select_from_dropdown(options, title, prompt):
     top.wait_window()
     return result['selection']
 
-def process_data_workbook(data_path, target_sheet_name, template_wb):
-    target_sheet = template_wb.sheets[target_sheet_name]
-    if data_path.endswith('.csv'):
-        data_df = pd.read_csv(data_path)
-    else:
-        data_df = pd.read_excel(data_path)
-
-    target_last_row = target_sheet.range('A' + str(target_sheet.cells.last_cell.row)).end('up').row
-    start_row = 2 if target_last_row < 2 else target_last_row + 1
-    target_sheet.range(f'A{start_row}').options(index=False, expand='table').value = data_df[1:]  # Exclude header row
-
 def main():
-    template_path = select_file("Select Template Workbook", [("Excel files", "*.xlsm")])
+    root = create_root_window()
+    template_path = select_file(root, "Select Template Workbook", [("Excel files", "*.xlsm")])
     if not template_path:
         print("No template workbook selected. Exiting.")
+        root.destroy()
         return
-
     template_wb = xw.Book(template_path)
 
     # Explicit variables for each target sheet
