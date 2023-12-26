@@ -74,9 +74,8 @@ def main():
         process_data_workbook(data_path3, target_sheet_name3, template_wb)
 
 
-    # Macro selection and execution
-    macro_names = [macro.name for macro in template_wb.api.VBProject.VBComponents if macro.Type == 1] # Filter for macros
-    selected_macro = select_from_dropdown(macro_names, "Macro Selection", "Select a macro to run:")
+    macro_names = [macro.name for macro in template_wb.api.VBProject.VBComponents if macro.Type == 1]  # Filter for macros
+    selected_macro = select_from_dropdown(root, macro_names, "Macro Selection", "Select a macro to run:") if macro_names else None
     if selected_macro:
         template_wb.macro(selected_macro)()
 
