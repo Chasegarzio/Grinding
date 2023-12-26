@@ -1,0 +1,87 @@
+import xlwings as xw
+import pandas as pd
+import tkinter as tk
+from tkinter import Toplevel, Label, OptionMenu, Button, StringVar
+from tkinter.filedialog import askopenfilename, asksaveasfilename
+
+root = tk.Tk()
+root.withdraw()
+
+def select_file(title, file_types):
+    selected_file = askopenfilename(title=title, file_types=file_types, parent=root)
+    return selected_file
+
+def select_from_dropdown(options, title, prompt):
+    result = {'selection': None}
+
+    def selection_made():
+        result['selection'] = variable.get()
+        top.destroy()
+
+    top = Toplevel(root)
+    top.title(title)
+    Label(top, text=prompt).pack(pady=10)
+
+    variable = StringVar(top)
+    variable.set(options[0])  # default value
+
+    dropdown = OptionMenu(top, variable, *options)
+    dropdown.pack()
+
+    Button(top, text="OK", command=selection_made).pack(pady=10)
+
+    top.wait_window()
+    return result['selection']
+
+def process_data_workbook(data_path, target_sheet_name, template_wb):
+    target_sheet = template_wb.sheets[target_sheet_name]
+    if data_path.endswith('.csv'):
+        data_df = pd.read_csv(data_path)
+    else:
+        data_df = pd.read_excel(data_path)
+
+    target_last_row = target_sheet.range('A' + str(target_sheet.cells.last_cell.row)).end('up').row
+    start_row = 2 if target_last_row < 2 else target_last_row + 1
+    target_sheet.range(f'A{start_row}').options(index=False, expand='table').value = data_df[1:]  # Exclude header row
+
+def main():
+    template_path = select_file("Select Template Workbook", [("Excel files", "*.xlsm")])
+    if not template_path:
+        print("No template workbook selected. Exiting.")
+        return
+
+    template_wb = xw.Book(template_path)
+
+    # Explicit variables for each target sheet
+    target_sheets = []
+    data_paths = []
+
+    sheet_names = [sheet.name for sheet in template_wb.sheets]
+
+    # Select target sheets and data workbooks
+    for i in range(3):
+        target_sheet_name = select_from_dropdown(sheet_names, "Sheet Selection", f"Select target sheet for Data Workbook {i+1}:")
+        if target_sheet_name:
+            target_sheets.append(target_sheet_name)
+            data_path = select_file(f"Select Data Workbook {i+1}", [("Excel/CSV files", "*.xlsx;*.xlsm;*.csv")])
+            if data_path:
+                data_paths.append(data_path)
+
+    # Process each data workbook
+    for target_sheet_name, data_path in zip(target_sheets, data_paths):
+        process_data_workbook(data_path, target_sheet_name, template_wb)
+
+    # Macro selection and execution
+     macro_names = [macro.name for macro in template_wb.api.VBProject.VBComponents if macro.Type == 1] # Filter for macros
+    selected_macro = select_from_dropdown(macro_names, "Macro Selection", "Select a macro to run:")
+    if selected_macro:
+        template_wb.macro(selected_macro)()
+
+    save_path = asksaveasfilename(title="Save Modified Workbook As", defaultextension=".xlsm", filetypes=[("Excel files", "*.xlsm")])
+    if save_path:
+        template_wb.save(save_path)
+
+    root.destroy()
+
+if __name__ == "__main__":
+    main()
