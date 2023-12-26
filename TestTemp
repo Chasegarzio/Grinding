@@ -4,14 +4,8 @@ import tkinter as tk
 from tkinter import Toplevel, Label, OptionMenu, Button, StringVar
 from tkinter.filedialog import askopenfilename, asksaveasfilename
 
-def create_root_window():
-    root = tk.Tk()
-    root.withdraw()
-    return root
-
 def select_file(root, title, file_types):
-    selected_file = askopenfilename(title=title, file_types=file_types, parent=root)
-    return selected_file
+    return askopenfilename(title=title, filetypes=file_types, parent=root)
 
 def select_from_dropdown(root, options, title, prompt):
     result = {'selection': None}
@@ -35,36 +29,53 @@ def select_from_dropdown(root, options, title, prompt):
     top.wait_window()
     return result['selection']
 
+def process_data_workbook(data_path, target_sheet_name, template_wb):
+    target_sheet = template_wb.sheets[target_sheet_name]
+    if data_path.endswith('.csv'):
+        data_df = pd.read_csv(data_path)
+    else:
+        data_df = pd.read_excel(data_path)
+
+    target_last_row = target_sheet.range('A' + str(target_sheet.cells.last_cell.row)).end('up').row
+    start_row = 2 if target_last_row < 2 else target_last_row + 1
+    target_sheet.range(f'A{start_row}').options(index=False, expand='table').value = data_df[1:]  # Exclude header row
+
 def main():
-    root = create_root_window()
+    root = tk.Tk()
+    root.withdraw()
+
     template_path = select_file(root, "Select Template Workbook", [("Excel files", "*.xlsm")])
     if not template_path:
         print("No template workbook selected. Exiting.")
         root.destroy()
         return
+
     template_wb = xw.Book(template_path)
-
-    # Explicit variables for each target sheet
-    target_sheets = []
-    data_paths = []
-
     sheet_names = [sheet.name for sheet in template_wb.sheets]
 
-    # Select target sheets and data workbooks
-    for i in range(3):
-        target_sheet_name = select_from_dropdown(sheet_names, "Sheet Selection", f"Select target sheet for Data Workbook {i+1}:")
-        if target_sheet_name:
-            target_sheets.append(target_sheet_name)
-            data_path = select_file(f"Select Data Workbook {i+1}", [("Excel/CSV files", "*.xlsx;*.xlsm;*.csv")])
-            if data_path:
-                data_paths.append(data_path)
+    # Explicit variables for each data workbook and target sheet
+    data_path1 = select_file(root, "Select Data Workbook 1", [("Excel/CSV files", "*.xlsx;*.xlsm;*.csv")])
+    target_sheet_name1 = select_from_dropdown(root, sheet_names, "Sheet Selection", "Select target sheet for Data Workbook 1:") if data_path1 else None
+
+    data_path2 = select_file(root, "Select Data Workbook 2", [("Excel/CSV files", "*.xlsx;*.xlsm;*.csv")])
+    target_sheet_name2 = select_from_dropdown(root, sheet_names, "Sheet Selection", "Select target sheet for Data Workbook 2:") if data_path2 else None
+
+    data_path3 = select_file(root, "Select Data Workbook 3", [("Excel/CSV files", "*.xlsx;*.xlsm;*.csv")])
+    target_sheet_name3 = select_from_dropdown(root, sheet_names, "Sheet Selection", "Select target sheet for Data Workbook 3:") if data_path3 else None
 
     # Process each data workbook
-    for target_sheet_name, data_path in zip(target_sheets, data_paths):
-        process_data_workbook(data_path, target_sheet_name, template_wb)
+    if data_path1 and target_sheet_name1:
+        process_data_workbook(data_path1, target_sheet_name1, template_wb)
+
+    if data_path2 and target_sheet_name2:
+        process_data_workbook(data_path2, target_sheet_name2, template_wb)
+
+    if data_path3 and target_sheet_name3:
+        process_data_workbook(data_path3, target_sheet_name3, template_wb)
+
 
     # Macro selection and execution
-     macro_names = [macro.name for macro in template_wb.api.VBProject.VBComponents if macro.Type == 1] # Filter for macros
+    macro_names = [macro.name for macro in template_wb.api.VBProject.VBComponents if macro.Type == 1] # Filter for macros
     selected_macro = select_from_dropdown(macro_names, "Macro Selection", "Select a macro to run:")
     if selected_macro:
         template_wb.macro(selected_macro)()
